@@ -1,19 +1,25 @@
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
-  getRedirectResult,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
-  signInWithRedirect,
+  signInWithPopup,
   signOut,
   updateProfile,
   type User,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: "select_account" });
+googleProvider.setCustomParameters({
+  prompt: "select_account",
+});
 
 export async function createUserProfile(user: User, name?: string) {
   const userReference = doc(db, "users", user.uid);
@@ -30,33 +36,50 @@ export async function createUserProfile(user: User, name?: string) {
   }
 }
 
-export async function signupWithEmail(name: string, email: string, password: string) {
-  const credential = await createUserWithEmailAndPassword(auth, email, password);
-  await updateProfile(credential.user, { displayName: name });
+export async function signupWithEmail(
+  name: string,
+  email: string,
+  password: string
+) {
+  const credential = await createUserWithEmailAndPassword(
+    auth,
+    email,
+    password
+  );
+
+  await updateProfile(credential.user, {
+    displayName: name,
+  });
+
   await createUserProfile(credential.user, name);
+
   return credential.user;
 }
 
-export async function loginWithEmail(email: string, password: string) {
-  const credential = await signInWithEmailAndPassword(auth, email, password);
+export async function loginWithEmail(
+  email: string,
+  password: string
+) {
+  const credential = await signInWithEmailAndPassword(
+    auth,
+    email,
+    password
+  );
+
   return credential.user;
 }
 
 export async function loginWithGoogle() {
-  // Redirect avoids the popup + Cross-Origin-Opener-Policy / IndexedDB
-  // ("Database is closing/hidden") issues that signInWithPopup can hit
-  // in dev servers and embedded/in-app browsers. The user is sent to
-  // Google and back to this app; the result is picked up by
-  // completeGoogleRedirect() below.
-  await signInWithRedirect(auth, googleProvider);
+  const result = await signInWithPopup(auth, googleProvider);
+
+  await createUserProfile(result.user);
+
+  return result.user;
 }
 
+// No longer needed when using popup
 export async function completeGoogleRedirect() {
-  const result = await getRedirectResult(auth);
-  if (result?.user) {
-    await createUserProfile(result.user);
-  }
-  return result?.user ?? null;
+  return null;
 }
 
 export function sendResetEmail(email: string) {
