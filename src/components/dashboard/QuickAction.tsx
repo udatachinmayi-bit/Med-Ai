@@ -1,0 +1,3 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+export function QuickAction({ label, description, icon, href }: { label: string; description: string; icon: ReactNode; href: string }) { return <Link href={href} className="group flex items-center gap-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3 transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md"><span className="grid size-10 place-items-center rounded-xl bg-white text-sky-600 shadow-sm">{icon}</span><span className="min-w-0"><span className="block text-sm font-semibold text-slate-800">{label}</span><span className="block truncate text-xs text-slate-500">{description}</span></span></Link>; }

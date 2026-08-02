@@ -1,0 +1,1 @@
+export function AuthHeader({ title, description }: { title: string; description: string }) { return <header><p className="text-xs font-bold uppercase tracking-[.15em] text-sky-600">MedAI account</p><h2 className="mt-3 text-3xl font-bold tracking-[-.05em] text-slate-950 sm:text-4xl">{title}</h2><p className="mt-3 text-sm leading-6 text-slate-600">{description}</p></header>; }

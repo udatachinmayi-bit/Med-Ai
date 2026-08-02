@@ -1,0 +1,4 @@
+"use client";
+import { motion, useReducedMotion } from "framer-motion";
+import type { ReactNode } from "react";
+export function WidgetCard({ label, value, detail, icon, color = "text-sky-600 bg-sky-50" }: { label: string; value: string; detail: string; icon: ReactNode; color?: string }) { const reduce = useReducedMotion(); return <motion.article whileHover={reduce ? undefined : { y: -4 }} className="rounded-2xl border border-white/80 bg-white/75 p-4 shadow-sm backdrop-blur-xl"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">{label}</span><span className={`grid size-8 place-items-center rounded-lg ${color}`}>{icon}</span></div><p className="mt-3 text-xl font-bold tracking-tight text-slate-950">{value}</p><p className="mt-1 text-xs text-slate-500">{detail}</p></motion.article>; }
