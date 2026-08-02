@@ -1,4 +1,5 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -18,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 const items = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -43,13 +45,28 @@ function MenuBody({
   onClose: () => void;
   pathname: string | null;
 }) {
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      onClose();
+      await logout();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
   return (
     <>
       <div className="flex items-center justify-between">
-        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-slate-950">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 font-bold text-slate-950"
+        >
           <span className="grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-sky-600 to-cyan-500 text-white shadow-lg shadow-sky-200">
             <HeartPulse className="size-5" />
           </span>
+
           {(!collapsed || mobile) && (
             <span className="text-lg tracking-[-.04em]">
               med<span className="text-sky-600">ai</span>
@@ -58,50 +75,84 @@ function MenuBody({
         </Link>
 
         {mobile ? (
-          <button aria-label="Close menu" className="grid size-9 place-items-center rounded-xl hover:bg-sky-50" onClick={onClose}>
+          <button
+            aria-label="Close menu"
+            className="grid size-9 place-items-center rounded-xl hover:bg-sky-50"
+            onClick={onClose}
+          >
             <X className="size-5" />
           </button>
         ) : (
-          <button aria-label="Collapse sidebar" className="hidden rounded-xl p-2 text-slate-400 hover:bg-sky-50 lg:block" onClick={() => setCollapsed(!collapsed)}>
+          <button
+            aria-label="Collapse sidebar"
+            className="hidden rounded-xl p-2 text-slate-400 hover:bg-sky-50 lg:block"
+            onClick={() => setCollapsed(!collapsed)}
+          >
             <Menu className="size-4" />
           </button>
         )}
       </div>
 
-      <nav aria-label="Dashboard navigation" className="mt-8 space-y-1">
+      <nav
+        aria-label="Dashboard navigation"
+        className="mt-8 space-y-1"
+      >
         {items.map(({ label, href, icon: Icon }) => (
           <Link
+            key={label}
+            href={href}
+            onClick={onClose}
             aria-current={pathname === href ? "page" : undefined}
             className={`group relative flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all ${
               pathname === href
                 ? "bg-gradient-to-r from-sky-50 to-cyan-50 text-sky-700 shadow-sm"
                 : "text-slate-600 hover:bg-sky-50 hover:text-sky-700"
             }`}
-            href={href}
-            key={label}
-            onClick={onClose}
           >
             <Icon className="size-4.5 shrink-0" />
+
             {(!collapsed || mobile) && <span>{label}</span>}
+
             {pathname === href && (
-              <motion.span layoutId={mobile ? "mobile-active" : "desktop-active"} className="absolute bottom-2 left-1 top-2 w-1 rounded-full bg-gradient-to-b from-sky-500 to-cyan-400" />
+              <motion.span
+                layoutId={mobile ? "mobile-active" : "desktop-active"}
+                className="absolute bottom-2 left-1 top-2 w-1 rounded-full bg-gradient-to-b from-sky-500 to-cyan-400"
+              />
             )}
           </Link>
         ))}
       </nav>
 
       <div className="mt-auto space-y-3">
-        <div className={`rounded-2xl bg-gradient-to-br from-sky-600 to-cyan-500 p-4 text-white shadow-lg shadow-sky-200 ${collapsed && !mobile ? "hidden" : ""}`}>
+        <div
+          className={`rounded-2xl bg-gradient-to-br from-sky-600 to-cyan-500 p-4 text-white shadow-lg shadow-sky-200 ${
+            collapsed && !mobile ? "hidden" : ""
+          }`}
+        >
           <ShieldAlert className="size-5" />
-          <p className="mt-3 text-sm font-bold">Emergency contacts</p>
-          <p className="mt-1 text-xs leading-5 text-sky-100">Keep important care contacts close.</p>
-          <Link className="mt-3 inline-block text-xs font-bold underline underline-offset-4" href="/dashboard/profile">
+
+          <p className="mt-3 text-sm font-bold">
+            Emergency contacts
+          </p>
+
+          <p className="mt-1 text-xs leading-5 text-sky-100">
+            Keep important care contacts close.
+          </p>
+
+          <Link
+            href="/dashboard/profile"
+            className="mt-3 inline-block text-xs font-bold underline underline-offset-4"
+          >
             Manage contacts
           </Link>
         </div>
 
-        <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600">
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
+        >
           <LogOut className="size-4.5" />
+
           {(!collapsed || mobile) && "Logout"}
         </button>
       </div>
@@ -109,7 +160,13 @@ function MenuBody({
   );
 }
 
-export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function Sidebar({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -120,21 +177,44 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           collapsed ? "w-[88px]" : "w-72"
         }`}
       >
-        <MenuBody collapsed={collapsed} setCollapsed={setCollapsed} onClose={onClose} pathname={pathname} />
+        <MenuBody
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          onClose={onClose}
+          pathname={pathname}
+        />
       </aside>
 
       <AnimatePresence>
         {open && (
           <>
-            <motion.button aria-label="Close sidebar" className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-[1px] lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+            <motion.button
+              aria-label="Close sidebar"
+              className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-[1px] lg:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+            />
+
             <motion.aside
               className="fixed inset-y-0 left-0 z-50 flex w-80 flex-col bg-white p-5 shadow-2xl lg:hidden"
               initial={{ x: -330 }}
               animate={{ x: 0 }}
               exit={{ x: -330 }}
-              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+              transition={{
+                type: "spring",
+                stiffness: 260,
+                damping: 26,
+              }}
             >
-              <MenuBody mobile collapsed={collapsed} setCollapsed={setCollapsed} onClose={onClose} pathname={pathname} />
+              <MenuBody
+                mobile
+                collapsed={collapsed}
+                setCollapsed={setCollapsed}
+                onClose={onClose}
+                pathname={pathname}
+              />
             </motion.aside>
           </>
         )}
