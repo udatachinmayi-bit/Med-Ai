@@ -42,9 +42,14 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    setDrawerOpen(false);
-    setOpenMenu(null);
-  }, [pathname]);
+    if (drawerOpen || openMenu !== null) {
+      const id = setTimeout(() => {
+        setDrawerOpen(false);
+        setOpenMenu(null);
+      }, 0);
+      return () => clearTimeout(id);
+    }
+  }, [pathname, drawerOpen, openMenu]);
 
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname !== "/" && href.startsWith(pathname);
 

@@ -15,14 +15,11 @@ import { GlassCard } from "../ui/GlassCard";
 import { SectionBadge } from "../ui/SectionBadge";
 
 function CountUp({ end, suffix = "+" }: { end: number; suffix?: string }) {
-  const [value, setValue] = useState(0);
   const shouldReduceMotion = useReducedMotion();
+  const [value, setValue] = useState(() => (shouldReduceMotion ? end : 0));
 
   useEffect(() => {
-    if (shouldReduceMotion) {
-      setValue(end);
-      return;
-    }
+    if (shouldReduceMotion) return;
 
     const duration = 1200;
     const startedAt = performance.now();
