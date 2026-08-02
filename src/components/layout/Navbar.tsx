@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Activity, ArrowRight, Bell, ChevronDown, FileText, HeartPulse, Menu, Mic, ShieldCheck, X } from "lucide-react";
+import { 
+  Activity, ArrowRight, Bell, ChevronDown, FileText, HeartPulse, 
+  Menu, Mic, ShieldCheck, X, LogOut 
+} from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 type NavLink = { label: string; href: string; mega?: "products" | "resources" };
 
@@ -30,9 +34,28 @@ const resourceItems = [
 export default function Navbar() {
   const pathname = usePathname();
   const shouldReduceMotion = useReducedMotion();
+  const { user, signOut } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<"products" | "resources" | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  
+  // Refs for click-outside detection
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const userButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (user?.displayName) {
+      return user.displayName
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    return user?.email?.charAt(0).toUpperCase() || "U";
+  };
 
   useEffect(() => {
     const updateScrollState = () => setScrolled(window.scrollY > 12);
@@ -40,6 +63,24 @@ export default function Navbar() {
     window.addEventListener("scroll", updateScrollState, { passive: true });
     return () => window.removeEventListener("scroll", updateScrollState);
   }, []);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showUserMenu &&
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node) &&
+        userButtonRef.current &&
+        !userButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showUserMenu]);
 
   useEffect(() => {
     if (drawerOpen || openMenu !== null) {
@@ -52,6 +93,11 @@ export default function Navbar() {
   }, [pathname, drawerOpen, openMenu]);
 
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname !== "/" && href.startsWith(pathname);
+
+  const handleSignOut = async () => {
+    await signOut();
+    setShowUserMenu(false);
+  };
 
   return (
     <header className={`sticky top-0 z-50 border-b transition-all duration-300 ${scrolled ? "border-sky-100/80 bg-white/80 shadow-[0_8px_30px_rgba(14,116,144,0.08)] backdrop-blur-xl" : "border-transparent bg-white/40 backdrop-blur-md"}`}>
@@ -86,15 +132,82 @@ export default function Navbar() {
           ))}
         </nav>
 
+        {/* Desktop Auth UI */}
         <div className="hidden items-center gap-2 lg:flex">
-          <button aria-label="Notifications" className="relative grid size-10 place-items-center rounded-xl text-slate-600 transition-colors hover:bg-sky-50 hover:text-sky-700" type="button">
-            <Bell className="size-4.5" />
-            <span className="absolute right-2 top-2 size-1.5 rounded-full bg-cyan-500 ring-2 ring-white" />
-          </button>
-          <button aria-label="Open profile menu" className="grid size-9 place-items-center rounded-full bg-gradient-to-br from-sky-100 to-cyan-100 text-xs font-bold text-sky-700 ring-2 ring-white shadow-sm" type="button">GC</button>
-          <Link className="ml-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(2,132,199,0.2)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_25px_rgba(2,132,199,0.28)]" href="/login">
-            Get started <ArrowRight className="size-4" />
-          </Link>
+          {user ? (
+            <>
+              <button
+                aria-label="Notifications"
+                className="relative grid size-10 place-items-center rounded-xl text-slate-600 transition-colors hover:bg-sky-50 hover:text-sky-700"
+                type="button"
+              >
+                <Bell className="size-4.5" />
+                <span className="absolute right-2 top-2 size-1.5 rounded-full bg-cyan-500 ring-2 ring-white" />
+              </button>
+
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  ref={userButtonRef}
+                  className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-sky-50"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  type="button"
+                >
+                  <span className="hidden text-right sm:block">
+                    <span className="block text-sm font-bold text-slate-900">
+                      {user.displayName || user.email?.split("@")[0] || "User"}
+                    </span>
+                  </span>
+
+                  {user.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt={user.displayName ?? "Profile"}
+                      className="size-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-sky-100 to-cyan-100 text-sm font-bold text-sky-700">
+                      {getUserInitials()}
+                    </span>
+                  )}
+                </button>
+
+                {/* User dropdown menu */}
+                <AnimatePresence>
+                  {showUserMenu && (
+                    <motion.div
+                      className="absolute right-0 mt-2 w-56 rounded-xl border border-sky-100 bg-white/95 p-1 shadow-lg backdrop-blur-2xl"
+                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <div className="border-b border-slate-100 px-3 py-2">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {user.displayName || "User"}
+                        </p>
+                        <p className="text-xs text-slate-500">{user.email}</p>
+                      </div>
+                      <button
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-sky-50 hover:text-sky-700"
+                        onClick={handleSignOut}
+                      >
+                        <LogOut className="size-4" />
+                        Sign out
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(2,132,199,0.2)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_25px_rgba(2,132,199,0.28)]"
+            >
+              Get started
+              <ArrowRight className="size-4" />
+            </Link>
+          )}
         </div>
 
         <button aria-controls="mobile-navigation" aria-expanded={drawerOpen} aria-label={drawerOpen ? "Close navigation" : "Open navigation"} className="grid size-10 place-items-center rounded-xl text-slate-700 transition-colors hover:bg-sky-50 lg:hidden" onClick={() => setDrawerOpen((open) => !open)} type="button">
@@ -102,6 +215,7 @@ export default function Navbar() {
         </button>
       </div>
 
+      {/* Mobile Navigation */}
       <AnimatePresence>
         {drawerOpen ? (
           <>
@@ -124,10 +238,49 @@ export default function Navbar() {
                   </motion.div>
                 ))}
               </nav>
-              <div className="mt-3 border-t border-slate-100 pt-3">
-                <Link className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 px-4 py-3 text-sm font-semibold text-white" href="/login" onClick={() => setDrawerOpen(false)}>
-                  Get started <ArrowRight className="size-4" />
-                </Link>
+              <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
+                {user ? (
+                  <>
+                    <div className="flex items-center gap-3 rounded-xl bg-sky-50/70 px-3 py-2">
+                      {user.photoURL ? (
+                        <img
+                          src={user.photoURL}
+                          alt={user.displayName ?? "Profile"}
+                          className="size-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-sky-100 to-cyan-100 text-sm font-bold text-sky-700">
+                          {getUserInitials()}
+                        </span>
+                      )}
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {user.displayName || "User"}
+                        </p>
+                        <p className="text-xs text-slate-500">{user.email}</p>
+                      </div>
+                    </div>
+                    <button
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"
+                      onClick={() => {
+                        handleSignOut();
+                        setDrawerOpen(false);
+                      }}
+                    >
+                      <LogOut className="size-4" />
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 px-4 py-3 text-sm font-semibold text-white"
+                    href="/login"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    Get started
+                    <ArrowRight className="size-4" />
+                  </Link>
+                )}
               </div>
             </motion.div>
           </>
