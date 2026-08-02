@@ -3,7 +3,8 @@ import {
   getDoc,
   setDoc,
 } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+
+import { db } from "@/lib/firebase";
 
 import {
   dashboardStats,
@@ -22,14 +23,8 @@ const defaultDashboard = {
   careStreak: 8,
 };
 
-export async function getDashboardStats() {
-  const user = auth.currentUser;
-
-  if (!user) {
-    return dashboardStats;
-  }
-
-  const ref = doc(db, "users", user.uid);
+export async function getDashboardStats(uid: string) {
+  const ref = doc(db, "users", uid);
 
   const snap = await getDoc(ref);
 
@@ -37,10 +32,22 @@ export async function getDashboardStats() {
     await setDoc(ref, defaultDashboard);
 
     return [
-      { ...dashboardStats[0], value: defaultDashboard.healthScore },
-      { ...dashboardStats[1], value: defaultDashboard.reportsReviewed },
-      { ...dashboardStats[2], value: defaultDashboard.medicineScans },
-      { ...dashboardStats[3], value: defaultDashboard.careStreak },
+      {
+        ...dashboardStats[0],
+        value: defaultDashboard.healthScore,
+      },
+      {
+        ...dashboardStats[1],
+        value: defaultDashboard.reportsReviewed,
+      },
+      {
+        ...dashboardStats[2],
+        value: defaultDashboard.medicineScans,
+      },
+      {
+        ...dashboardStats[3],
+        value: defaultDashboard.careStreak,
+      },
     ];
   }
 

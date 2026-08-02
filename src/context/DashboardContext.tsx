@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { useAuth } from "@/context/AuthContext";
+
 import {
   dashboardStats as initialStats,
   quickActions as initialActions,
@@ -18,6 +20,7 @@ import {
   appointments as initialAppointments,
   notifications as initialNotifications,
 } from "@/data/dashboardData";
+
 import {
   getAppointments,
   getDashboardStats,
@@ -27,9 +30,14 @@ import {
   getRecentActivity,
   getRecentReports,
 } from "@/services/dashboardService";
+
 import type { ActivityItem } from "@/types/activity";
 import type { Appointment } from "@/types/appointment";
-import type { DashboardStat, HealthTool, QuickAction } from "@/types/dashboard";
+import type {
+  DashboardStat,
+  HealthTool,
+  QuickAction,
+} from "@/types/dashboard";
 import type { Notification } from "@/types/notification";
 import type { Report } from "@/types/report";
 
@@ -53,47 +61,66 @@ export function DashboardProvider({
 }: {
   children: ReactNode;
 }) {
-  const [stats, setStats] = useState<DashboardStat[]>(initialStats);
-  const [actions, setActions] = useState<QuickAction[]>(initialActions);
-  const [tools, setTools] = useState<HealthTool[]>(initialTools);
-  const [reports, setReports] = useState<Report[]>(initialReports);
-  const [activity, setActivity] = useState<ActivityItem[]>(initialActivity);
-  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const { user, loading } = useAuth();
+
+  const [stats, setStats] = useState(initialStats);
+  const [actions, setActions] = useState(initialActions);
+  const [tools, setTools] = useState(initialTools);
+  const [reports, setReports] = useState(initialReports);
+  const [activity, setActivity] = useState(initialActivity);
+  const [appointments, setAppointments] =
+    useState(initialAppointments);
+  const [notifications, setNotifications] =
+    useState(initialNotifications);
+
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function loadDashboard() {
-      const [
-        nextStats,
-        nextActions,
-        nextTools,
-        nextReports,
-        nextActivity,
-        nextAppointments,
-        nextNotifications,
-      ] = await Promise.all([
-        getDashboardStats(),
-        getQuickActions(),
-        getHealthTools(),
-        getRecentReports(),
-        getRecentActivity(),
-        getAppointments(),
-        getNotifications(),
-      ]);
+    if (loading) return;
 
-      setStats(nextStats);
-      setActions(nextActions);
-      setTools(nextTools);
-      setReports(nextReports);
-      setActivity(nextActivity);
-      setAppointments(nextAppointments);
-      setNotifications(nextNotifications);
+    if (!user) {
       setIsLoading(false);
+      return;
     }
 
-    void loadDashboard();
-  }, []);
+    async function loadDashboard() {
+      try {
+        setIsLoading(true);
+
+        const [
+          nextStats,
+          nextActions,
+          nextTools,
+          nextReports,
+          nextActivity,
+          nextAppointments,
+          nextNotifications,
+        ] = await Promise.all([
+          getDashboardStats(user.uid),
+          getQuickActions(),
+          getHealthTools(),
+          getRecentReports(),
+          getRecentActivity(),
+          getAppointments(),
+          getNotifications(),
+        ]);
+
+        setStats(nextStats);
+        setActions(nextActions);
+        setTools(nextTools);
+        setReports(nextReports);
+        setActivity(nextActivity);
+        setAppointments(nextAppointments);
+        setNotifications(nextNotifications);
+      } catch (err) {
+        console.error("Dashboard Load Error", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadDashboard();
+  }, [user, loading]);
 
   const value = useMemo(
     () => ({
@@ -107,21 +134,28 @@ export function DashboardProvider({
       isLoading,
       setStats,
       markAllNotificationsAsRead: () => {
-        setNotifications((currentNotifications) =>
-          currentNotifications.map((notification) => ({
+        setNotifications((prev) =>
+          prev.map((notification) => ({
             ...notification,
             unread: false,
           }))
         );
       },
     }),
-    [stats, actions, tools, reports, activity, appointments, notifications, isLoading]
+    [
+      stats,
+      actions,
+      tools,
+      reports,
+      activity,
+      appointments,
+      notifications,
+      isLoading,
+    ]
   );
 
   return (
-    <DashboardContext.Provider
-      value={value}
-    >
+    <DashboardContext.Provider value={value}>
       {children}
     </DashboardContext.Provider>
   );
