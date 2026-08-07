@@ -34,3 +34,18 @@ body {
 html { scroll-behavior: smooth; }
 
 ::selection { background: #bae6fd; color: #0c4a6e; }
+
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #e0f2fe;
+  border-radius: 0.75rem;
+  background: white;
+  padding: 0.5rem 0.75rem;
+  color: #0369a1;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.action-button:hover { background: #f0f9ff; }

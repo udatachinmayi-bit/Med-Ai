@@ -1,0 +1,2 @@
+import { ScanLine } from "lucide-react";
+export function ScanButton({ disabled, onClick }: { disabled?: boolean; onClick: () => void }) { return <button disabled={disabled} onClick={onClick} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-500 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"><ScanLine className="size-5" /> Scan medicine</button>; }

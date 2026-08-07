@@ -1,0 +1,2 @@
+import { BrainCircuit } from "lucide-react";
+export function AnalyzeButton({ loading, onClick }: { loading: boolean; onClick: () => void }) { return <button disabled={loading} onClick={onClick} className="w-full rounded-xl bg-gradient-to-r from-sky-600 to-cyan-500 py-3.5 text-sm font-bold text-white disabled:opacity-50"><BrainCircuit className="mr-2 inline size-5" /> {loading ? "Analyzing report…" : "Analyze report"}</button>; }
