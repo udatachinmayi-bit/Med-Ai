@@ -1,0 +1,6 @@
+"use client";
+import { motion, useReducedMotion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import type { ReactNode } from "react";
+export function DashboardCard({ title, description, icon, href, accent = "from-sky-500 to-cyan-500" }: { title: string; description: string; icon: ReactNode; href: string; accent?: string }) { const reduce = useReducedMotion(); return <motion.article whileHover={reduce ? undefined : { y: -5, scale: 1.01 }} className="group relative overflow-hidden rounded-2xl border border-white/80 bg-white/75 p-5 shadow-[0_12px_32px_rgba(14,116,144,.08)] backdrop-blur-xl"><div aria-hidden="true" className="absolute -right-8 -top-8 size-28 rounded-full bg-sky-100/70 blur-2xl transition-transform duration-500 group-hover:scale-150" /><span className={`relative grid size-11 place-items-center rounded-xl bg-gradient-to-br ${accent} text-white shadow-md shadow-sky-200/60`}>{icon}</span><h3 className="relative mt-5 font-bold tracking-tight text-slate-950">{title}</h3><p className="relative mt-2 text-sm leading-6 text-slate-600">{description}</p><Link className="relative mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-sky-700 hover:text-sky-500" href={href}>Open tool <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" /></Link></motion.article>; }

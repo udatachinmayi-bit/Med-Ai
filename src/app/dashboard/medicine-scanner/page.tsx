@@ -1,0 +1,2 @@
+import { MedicineScanner } from "@/components/medicine/MedicineScanner";
+export default function MedicineScannerPage() { return <div className="space-y-6"><header><p className="text-sm font-semibold text-sky-700">Medicine tools</p><h1 className="mt-1 text-3xl font-bold tracking-[-.05em] text-slate-950 sm:text-4xl">Medicine Scanner</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Scan a medicine label for clear, structured information.</p></header><MedicineScanner /></div>; }

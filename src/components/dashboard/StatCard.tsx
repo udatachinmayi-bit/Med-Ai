@@ -1,0 +1,4 @@
+"use client";
+import { motion, useReducedMotion } from "framer-motion";
+import type { ReactNode } from "react";
+export function StatCard({ label, value, trend, icon }: { label: string; value: string; trend: string; icon: ReactNode }) { const reduce = useReducedMotion(); return <motion.div whileHover={reduce ? undefined : { y: -4 }} className="rounded-2xl border border-white/80 bg-white/75 p-5 shadow-sm backdrop-blur-xl"><div className="flex items-start justify-between"><span className="text-sm font-medium text-slate-500">{label}</span><span className="grid size-9 place-items-center rounded-xl bg-sky-50 text-sky-600">{icon}</span></div><p className="mt-4 text-2xl font-bold tracking-[-.04em] text-slate-950">{value}</p><p className="mt-1 text-xs font-semibold text-emerald-600">{trend}</p></motion.div>; }
