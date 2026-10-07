@@ -4,100 +4,269 @@ import {
   createContext,
   useContext,
   useEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { onAuthStateChanged, type User } from "firebase/auth";
+
+import {
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  type User,
+} from "firebase/auth";
+
 import { auth } from "@/lib/firebase";
 import {
-  completeGoogleRedirect,
-  loginWithEmail,
   loginWithGoogle,
-  logoutUser,
-  sendResetEmail,
   signupWithEmail,
 } from "@/services/auth";
 
+/* =========================================================
+   AUTH CONTEXT TYPE
+========================================================= */
+
 type AuthContextValue = {
-  user: User |null;
+  user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<User>;
+
+  login: (
+    email: string,
+    password: string
+  ) => Promise<User>;
+
   signup: (
     name: string,
     email: string,
     password: string
   ) => Promise<User>;
-  logout: () => Promise<void>;
-  googleLogin: () => Promise<void>;
+
+  googleLogin: () => Promise<User>;
+
+  signOut: () => Promise<void>;
+
   resetPassword: (email: string) => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+/* =========================================================
+   AUTH CONTEXT
+========================================================= */
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
+const AuthContext = createContext<
+  AuthContextValue | undefined
+>(undefined);
 
+/* =========================================================
+   AUTH PROVIDER
+========================================================= */
+
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [user, setUser] = useState<User | null>(null);
+
   const [loading, setLoading] = useState(true);
 
-  // Handle Google Redirect Login
-  useEffect(() => {
-    completeGoogleRedirect().catch((error) => {
-      console.error("Google redirect sign-in failed:", error);
-    });
-  }, []);
+  /* =======================================================
+     AUTH STATE LISTENER
+  ======================================================= */
 
-  // Listen for Firebase Auth Changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setLoading(false);
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (currentUser) => {
+        setUser(currentUser);
+        setLoading(false);
+      },
+      (error) => {
+        console.error(
+          "Firebase authentication error:",
+          error
+        );
 
-      if (nextUser) {
-        if (
-          pathname === "/login" ||
-          pathname === "/signup" ||
-          pathname === "/"
-        ) {
-          router.replace("/dashboard");
-        }
+        setUser(null);
+        setLoading(false);
       }
-    });
+    );
 
     return unsubscribe;
-  }, [router, pathname]);
+  }, []);
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      user,
-      loading,
-      login: loginWithEmail,
-      signup: signupWithEmail,
-      logout: async () => {
-        await logoutUser();
-        router.replace("/login");
-      },
-      googleLogin: loginWithGoogle,
-      resetPassword: sendResetEmail,
-    }),
-    [user, loading, router]
-  );
+  /* =======================================================
+     LOGIN
+  ======================================================= */
+
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<User> => {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
+      throw new Error("Please enter your email address.");
+    }
+
+    if (!password) {
+      throw new Error("Please enter your password.");
+    }
+
+    try {
+      const result =
+        await signInWithEmailAndPassword(
+          auth,
+          normalizedEmail,
+          password
+        );
+
+      setUser(result.user);
+
+      return result.user;
+    } catch (error) {
+      console.error("Login failed:", error);
+
+      throw error;
+    }
+  };
+
+  /* =======================================================
+     SIGN UP
+  ======================================================= */
+
+  const signup = async (
+    name: string,
+    email: string,
+    password: string
+  ): Promise<User> => {
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim();
+
+    if (!normalizedName) {
+      throw new Error("Please enter your name.");
+    }
+
+    if (!normalizedEmail) {
+      throw new Error("Please enter your email address.");
+    }
+
+    if (!password) {
+      throw new Error("Please enter your password.");
+    }
+
+    try {
+      const createdUser = await signupWithEmail(
+        normalizedName,
+        normalizedEmail,
+        password
+      );
+
+      setUser(createdUser);
+
+      return createdUser;
+    } catch (error) {
+      console.error("Sign up failed:", error);
+
+      throw error;
+    }
+  };
+
+  /* =======================================================
+     GOOGLE SIGN IN
+  ======================================================= */
+
+  const googleLogin = async (): Promise<User> => {
+    try {
+      const signedInUser = await loginWithGoogle();
+
+      setUser(signedInUser);
+
+      return signedInUser;
+    } catch (error) {
+      console.error("Google sign in failed:", error);
+
+      throw error;
+    }
+  };
+
+  /* =======================================================
+     SIGN OUT
+  ======================================================= */
+
+  const signOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+
+      setUser(null);
+    } catch (error) {
+      console.error("Sign out failed:", error);
+
+      throw error;
+    }
+  };
+
+  /* =======================================================
+     RESET PASSWORD
+  ======================================================= */
+
+  const resetPassword = async (
+    email: string
+  ) => {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
+      throw new Error(
+        "Please enter your email address."
+      );
+    }
+
+    try {
+      await sendPasswordResetEmail(
+        auth,
+        normalizedEmail
+      );
+    } catch (error) {
+      console.error(
+        "Password reset failed:",
+        error
+      );
+
+      throw error;
+    }
+  };
+
+  /* =======================================================
+     PROVIDER
+  ======================================================= */
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        signup,
+        googleLogin,
+        signOut,
+        resetPassword,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
+/* =========================================================
+   USE AUTH
+========================================================= */
+
 export function useAuth() {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error(
+      "useAuth must be used inside an AuthProvider"
+    );
   }
 
   return context;

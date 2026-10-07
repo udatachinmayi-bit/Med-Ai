@@ -1,3 +1,22 @@
+export type Medicine = {
+  name: string;
+  brandName: string;
+  genericName: string;
+  prescriptionRequired: boolean;
+  type: string;
+  overview: string;
+  uses: string[];
+  dosage: string;
+  sideEffects: string[];
+  warnings: string[];
+  storage: string;
+  foodInteraction: string;
+  alcoholInteraction: string;
+  pregnancySafety: string;
+  drivingSafety: string;
+  alternatives: string[];
+};
+
 export type MedicineAnalysis = {
   medicineName: string;
   genericName: string;
@@ -54,8 +73,11 @@ export type MedicineReminder = {
 export type MedicineScan = {
   id: string;
   medicineName?: string;
+  brand?: string;
   ocrText: string;
   analysis: MedicineAnalysis;
-  createdAt?: unknown;
+  safetyIndicator: MedicineAnalysis["safetyIndicator"];
+  confidence: number;
+  createdAt?: Date | null;
   imageUrl?: string;
 };

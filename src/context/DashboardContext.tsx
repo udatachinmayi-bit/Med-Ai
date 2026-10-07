@@ -83,6 +83,8 @@ export function DashboardProvider({
       return;
     }
 
+    const currentUser = user;
+
     async function loadDashboard() {
       try {
         setIsLoading(true);
@@ -96,7 +98,7 @@ export function DashboardProvider({
           nextAppointments,
           nextNotifications,
         ] = await Promise.all([
-          getDashboardStats(user.uid),
+          getDashboardStats(currentUser.uid),
           getQuickActions(),
           getHealthTools(),
           getRecentReports(),

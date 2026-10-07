@@ -45,12 +45,12 @@ function MenuBody({
   onClose: () => void;
   pathname: string | null;
 }) {
-  const { logout } = useAuth();
+  const { signOut } = useAuth();
 
   const handleLogout = async () => {
     try {
       onClose();
-      await logout();
+      await signOut();
     } catch (error) {
       console.error("Logout failed:", error);
     }

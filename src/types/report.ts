@@ -1,3 +1,9 @@
+export type Report = {
+  id: number;
+  name: string;
+  status: "Reviewed" | "Pending";
+};
+
 export type ReportTestResult = {
   name: string;
   value: string;
@@ -56,4 +62,17 @@ export type ReportHistoryItem = {
   fileName?: string;
   analysis: ReportAnalysis;
   createdAt?: unknown;
+};
+
+export type SavedReport = {
+  id: string;
+  reportType: string;
+  patient: ReportPatient;
+  healthScore: number;
+  summary: string;
+  confidence: number;
+  ocrText: string;
+  fileUrl: string;
+  analysis: ReportAnalysis;
+  createdAt?: Date | null;
 };
