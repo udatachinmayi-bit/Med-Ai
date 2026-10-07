@@ -1,12 +1,12 @@
 "use client";
 
-import { ReportAnalyzer } from "@/components/report/ReportAnalyzer";
+import { VoiceAssistant } from "@/components/voice/VoiceAssistant";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
-export default function ReportAnalyzerPage() {
+export default function VoiceAssistantPage() {
   return (
     <ProtectedRoute>
-      <ReportAnalyzer />
+      <VoiceAssistant />
     </ProtectedRoute>
   );
 }

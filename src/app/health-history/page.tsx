@@ -1,12 +1,12 @@
 "use client";
 
-import { ReportAnalyzer } from "@/components/report/ReportAnalyzer";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { HealthHistory } from "@/components/history/HealthHistory";
 
-export default function ReportAnalyzerPage() {
+export default function HealthHistoryPage() {
   return (
     <ProtectedRoute>
-      <ReportAnalyzer />
+      <HealthHistory />
     </ProtectedRoute>
   );
 }

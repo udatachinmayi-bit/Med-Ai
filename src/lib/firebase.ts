@@ -1,3 +1,5 @@
+"use client";
+
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -20,13 +22,11 @@ if (missingConfig.length > 0) {
   throw new Error(
     `Firebase configuration is missing or invalid: ${missingConfig.join(
       ", "
-    )}. Copy the Web app configuration from the Firebase console into E:\\Med-Ai-main\\.env.local.`
+    )}. Copy the Web app configuration from E:\\Med-Ai-main\\.env.local.`
   );
 }
 
-const app = getApps().length
-  ? getApp()
-  : initializeApp(firebaseConfig);
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);

@@ -1,19 +1,59 @@
-export interface Report {
-  id: number;
+export type ReportTestResult = {
   name: string;
-  status: "Reviewed" | "Pending";
-}
+  value: string;
+  unit: string;
+  referenceRange: string;
+  status: "normal" | "high" | "low" | "critical" | "unknown";
+  explanation: string;
+};
 
-export type HealthLevel = "Healthy" | "Needs Attention" | "Critical";
-export interface ReportAnalysis {
-  patient: { name: string; age: string; gender: string };
-  report: { type: string; date: string; laboratory: string };
+export type ReportPatient = {
+  name: string;
+  age: string;
+  gender: string;
+  reportDate: string;
+  labName: string;
+};
+
+export type ReportAnalysis = {
+  reportType: string;
+
+  patient: ReportPatient;
+
+  summary: string;
+
+  keyFindings: string[];
+
+  normalResults: ReportTestResult[];
+
+  abnormalResults: ReportTestResult[];
+
+  allResults: ReportTestResult[];
+
+  possibleInterpretations: string[];
+
+  recommendations: string[];
+
+  questionsForDoctor: string[];
+
   healthScore: number;
-  overallStatus: { level: HealthLevel; color: "green" | "yellow" | "red"; reason: string };
-  tests: { name: string; value: string; unit: string; normalRange: string; status: "High" | "Low" | "Normal"; reason: string; clinicalSignificance: string }[];
-  detectedProblems: string[]; possibleCauses: string[]; possibleConditions: string[]; symptoms: string[]; recommendations: string[];
-  foods: { recommended: string[]; avoid: string[] }; exercise: string[]; lifestyle: string[];
-  medicationInformation: { name: string; note: string }[]; doctorConsultationRequired: boolean; emergencyWarning: string; followUpTests: string[]; summary: string;
-  confidence: { ocr: number; analysis: number }; medicalDisclaimer: string;
-}
-export interface SavedReport { id: string; reportType: string; patient: ReportAnalysis["patient"]; healthScore: number; overallStatus: ReportAnalysis["overallStatus"]; tests: ReportAnalysis["tests"]; summary: string; confidence: ReportAnalysis["confidence"]; ocrText: string; fileUrl: string; analysis: ReportAnalysis; createdAt: Date | null; }
+
+  urgency:
+    | "routine"
+    | "attention"
+    | "urgent";
+
+  urgencyReason: string;
+
+  confidence: number;
+
+  disclaimer: string;
+};
+
+export type ReportHistoryItem = {
+  id: string;
+  reportType?: string;
+  fileName?: string;
+  analysis: ReportAnalysis;
+  createdAt?: unknown;
+};

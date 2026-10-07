@@ -1,7 +1,324 @@
-import type { ReportAnalysis } from "@/types/report";
-const object = (value: unknown) => value && typeof value === "object" ? value as Record<string, unknown> : {};
-const text = (value: unknown) => typeof value === "string" ? value.trim() : "";
-const strings = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean) : [];
-const percentage = (value: unknown) => Math.max(0, Math.min(100, typeof value === "number" ? value : 0));
-export function validateReportAnalysis(value: unknown): ReportAnalysis { const source = object(value); const patient = object(source.patient), report = object(source.report), status = object(source.overallStatus), foods = object(source.foods), confidence = object(source.confidence); const level = ["Healthy", "Needs Attention", "Critical"].includes(text(status.level)) ? text(status.level) as ReportAnalysis["overallStatus"]["level"] : "Needs Attention"; return { patient: { name: text(patient.name), age: text(patient.age), gender: text(patient.gender) }, report: { type: text(report.type), date: text(report.date), laboratory: text(report.laboratory) }, healthScore: percentage(source.healthScore), overallStatus: { level, color: level === "Healthy" ? "green" : level === "Critical" ? "red" : "yellow", reason: text(status.reason) }, tests: Array.isArray(source.tests) ? source.tests.map((value) => { const test = object(value); const status = ["High", "Low", "Normal"].includes(text(test.status)) ? text(test.status) as "High" | "Low" | "Normal" : "Normal"; return { name: text(test.name), value: text(test.value), unit: text(test.unit), normalRange: text(test.normalRange), status, reason: text(test.reason), clinicalSignificance: text(test.clinicalSignificance) }; }) : [], detectedProblems: strings(source.detectedProblems), possibleCauses: strings(source.possibleCauses), possibleConditions: strings(source.possibleConditions), symptoms: strings(source.symptoms), recommendations: strings(source.recommendations), foods: { recommended: strings(foods.recommended), avoid: strings(foods.avoid) }, exercise: strings(source.exercise), lifestyle: strings(source.lifestyle), medicationInformation: Array.isArray(source.medicationInformation) ? source.medicationInformation.map((value) => { const item = object(value); return { name: text(item.name), note: text(item.note) }; }) : [], doctorConsultationRequired: source.doctorConsultationRequired === true, emergencyWarning: text(source.emergencyWarning), followUpTests: strings(source.followUpTests), summary: text(source.summary), confidence: { ocr: percentage(confidence.ocr), analysis: percentage(confidence.analysis) }, medicalDisclaimer: text(source.medicalDisclaimer) || "This AI-generated analysis is for educational purposes only and is not a diagnosis. Consult a qualified healthcare professional for medical advice." }; }
-export async function analyzeReportText(extractedText: string, ocrConfidence = 0): Promise<ReportAnalysis> { if (typeof navigator !== "undefined" && !navigator.onLine) throw new Error("You appear to be offline. Reconnect to analyse the report."); const response = await fetch("/api/report-analysis", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ extractedText, ocrConfidence }) }); const body: unknown = await response.json().catch(() => ({})); if (!response.ok || !body || typeof body !== "object" || !("analysis" in body)) throw new Error(body && typeof body === "object" && "error" in body && typeof body.error === "string" ? body.error : "Report analysis is unavailable."); return validateReportAnalysis(body.analysis); }
+import type {
+  ReportAnalysis,
+  ReportTestResult,
+} from "@/types/report";
+
+function cleanString(value: unknown): string {
+  return typeof value === "string"
+    ? value.trim()
+    : "";
+}
+
+function cleanArray(
+  value: unknown
+): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) =>
+      typeof item === "string"
+        ? item.trim()
+        : ""
+    )
+    .filter(Boolean);
+}
+
+function cleanTestResults(
+  value: unknown
+): ReportTestResult[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item) => {
+    const data =
+      item &&
+      typeof item === "object"
+        ? (item as Record<string, unknown>)
+        : {};
+
+    const allowedStatuses = [
+      "normal",
+      "high",
+      "low",
+      "critical",
+      "unknown",
+    ] as const;
+
+    const rawStatus =
+      cleanString(data.status).toLowerCase();
+
+    const status = allowedStatuses.includes(
+      rawStatus as (typeof allowedStatuses)[number]
+    )
+      ? (rawStatus as ReportTestResult["status"])
+      : "unknown";
+
+    return {
+      name: cleanString(data.name),
+
+      value: cleanString(data.value),
+
+      unit: cleanString(data.unit),
+
+      referenceRange:
+        cleanString(
+          data.referenceRange
+        ),
+
+      status,
+
+      explanation:
+        cleanString(
+          data.explanation
+        ),
+    };
+  });
+}
+
+export function validateReportAnalysis(
+  input: unknown
+): ReportAnalysis {
+  const data =
+    input &&
+    typeof input === "object"
+      ? (input as Record<string, unknown>)
+      : {};
+
+  const patientData =
+    data.patient &&
+    typeof data.patient === "object"
+      ? (data.patient as Record<
+          string,
+          unknown
+        >)
+      : {};
+
+  const urgencyValues = [
+    "routine",
+    "attention",
+    "urgent",
+  ] as const;
+
+  const rawUrgency =
+    cleanString(
+      data.urgency
+    ).toLowerCase();
+
+  const urgency =
+    urgencyValues.includes(
+      rawUrgency as (typeof urgencyValues)[number]
+    )
+      ? (rawUrgency as ReportAnalysis["urgency"])
+      : "routine";
+
+  const healthScore = Number(
+    data.healthScore
+  );
+
+  const confidence = Number(
+    data.confidence
+  );
+
+  return {
+    reportType:
+      cleanString(
+        data.reportType
+      ) ||
+      "Medical report",
+
+    patient: {
+      name:
+        cleanString(
+          patientData.name
+        ) || "Not provided",
+
+      age:
+        cleanString(
+          patientData.age
+        ) || "Not provided",
+
+      gender:
+        cleanString(
+          patientData.gender
+        ) || "Not provided",
+
+      reportDate:
+        cleanString(
+          patientData.reportDate
+        ) || "Not provided",
+
+      labName:
+        cleanString(
+          patientData.labName
+        ) || "Not provided",
+    },
+
+    summary:
+      cleanString(
+        data.summary
+      ) ||
+      "The report could not be summarized from the available information.",
+
+    keyFindings:
+      cleanArray(
+        data.keyFindings
+      ),
+
+    normalResults:
+      cleanTestResults(
+        data.normalResults
+      ),
+
+    abnormalResults:
+      cleanTestResults(
+        data.abnormalResults
+      ),
+
+    allResults:
+      cleanTestResults(
+        data.allResults
+      ),
+
+    possibleInterpretations:
+      cleanArray(
+        data.possibleInterpretations
+      ),
+
+    recommendations:
+      cleanArray(
+        data.recommendations
+      ),
+
+    questionsForDoctor:
+      cleanArray(
+        data.questionsForDoctor
+      ),
+
+    healthScore:
+      Number.isFinite(healthScore)
+        ? Math.min(
+            100,
+            Math.max(0, healthScore)
+          )
+        : 0,
+
+    urgency,
+
+    urgencyReason:
+      cleanString(
+        data.urgencyReason
+      ) ||
+      "No urgency could be determined from the available report.",
+
+    confidence:
+      Number.isFinite(confidence)
+        ? Math.min(
+            100,
+            Math.max(0, confidence)
+          )
+        : 0,
+
+    disclaimer:
+      cleanString(
+        data.disclaimer
+      ) ||
+      "This analysis is for educational purposes only and is not a diagnosis. Discuss medical concerns and treatment decisions with a qualified healthcare professional.",
+  };
+}
+
+export async function analyzeReport(
+  file: File
+): Promise<ReportAnalysis> {
+  const base64 = await fileToBase64(
+    file
+  );
+
+  const response = await fetch(
+    "/api/report-analysis",
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+
+      body: JSON.stringify({
+        file: base64,
+
+        mimeType:
+          file.type ||
+          "application/octet-stream",
+
+        fileName: file.name,
+      }),
+    }
+  );
+
+  const data =
+    await response.json().catch(
+      () => ({})
+    );
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data.error === "string"
+        ? data.error
+        : "Unable to analyze the report."
+    );
+  }
+
+  return validateReportAnalysis(
+    data
+  );
+}
+
+function fileToBase64(
+  file: File
+): Promise<string> {
+  return new Promise(
+    (resolve, reject) => {
+      const reader =
+        new FileReader();
+
+      reader.onload = () => {
+        if (
+          typeof reader.result !==
+          "string"
+        ) {
+          reject(
+            new Error(
+              "Unable to read the uploaded file."
+            )
+          );
+
+          return;
+        }
+
+        const commaIndex =
+          reader.result.indexOf(",");
+
+        resolve(
+          commaIndex >= 0
+            ? reader.result.slice(
+                commaIndex + 1
+              )
+            : reader.result
+        );
+      };
+
+      reader.onerror = () => {
+        reject(
+          new Error(
+            "Unable to read the uploaded file."
+          )
+        );
+      };
+
+      reader.readAsDataURL(file);
+    }
+  );
+}
