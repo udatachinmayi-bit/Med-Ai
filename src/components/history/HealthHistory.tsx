@@ -1,13 +1,10 @@
+
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
-  AlertCircle,
   Calendar,
-  ChevronDown,
-  ChevronUp,
-  Clock,
   FileText,
   HeartPulse,
   Loader2,
@@ -16,1134 +13,514 @@ import {
   Search,
   Stethoscope,
   Trash2,
-  UserRound,
   X,
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
-
 import {
   deleteHealthHistory,
   getHealthHistory,
 } from "@/lib/healthHistory";
-
 import type {
   HealthHistoryRecord,
   HealthHistoryType,
 } from "@/types/healthHistory";
 
-type FilterType = "all" | HealthHistoryType;
-
 const FILTERS: {
-  id: FilterType;
   label: string;
+  value: "all" | HealthHistoryType;
 }[] = [
-  {
-    id: "all",
-    label: "All",
-  },
-  {
-    id: "medicine",
-    label: "Medicine",
-  },
-  {
-    id: "symptom",
-    label: "Symptoms",
-  },
-  {
-    id: "report",
-    label: "Reports",
-  },
-  {
-    id: "voice",
-    label: "Voice AI",
-  },
+  { label: "All records", value: "all" },
+  { label: "Medicine scans", value: "medicine" },
+  { label: "Symptom checks", value: "symptom" },
+  { label: "Medical reports", value: "report" },
+  { label: "Voice assistant", value: "voice" },
 ];
 
-/* =========================================================
-   TYPE ICON
-========================================================= */
+function getDate(value: unknown): Date | null {
+  if (!value) return null;
 
-function getTypeIcon(type: HealthHistoryType) {
-  switch (type) {
-    case "medicine":
-      return <Pill className="h-5 w-5" />;
+  try {
+    const date =
+      typeof value === "object" &&
+      value !== null &&
+      "toDate" in value &&
+      typeof value.toDate === "function"
+        ? value.toDate()
+        : new Date(value as string | number);
 
-    case "symptom":
-      return <Stethoscope className="h-5 w-5" />;
-
-    case "report":
-      return <FileText className="h-5 w-5" />;
-
-    case "voice":
-      return <Activity className="h-5 w-5" />;
-
-    default:
-      return <HeartPulse className="h-5 w-5" />;
+    return Number.isNaN(date.getTime()) ? null : date;
+  } catch {
+    return null;
   }
 }
 
-/* =========================================================
-   TYPE LABEL
-========================================================= */
+function formatDate(value: unknown): string {
+  const date = getDate(value);
+
+  if (!date) return "Date unavailable";
+
+  return date.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function getIcon(type: HealthHistoryType) {
+  switch (type) {
+    case "medicine":
+      return Pill;
+    case "symptom":
+      return Stethoscope;
+    case "report":
+      return FileText;
+    case "voice":
+      return Activity;
+    default:
+      return HeartPulse;
+  }
+}
 
 function getTypeLabel(type: HealthHistoryType) {
   switch (type) {
     case "medicine":
-      return "Medicine";
-
+      return "Medicine scan";
     case "symptom":
-      return "Symptom Check";
-
+      return "Symptom check";
     case "report":
-      return "Medical Report";
-
+      return "Medical report";
     case "voice":
-      return "Voice AI";
-
+      return "Voice assistant";
     default:
-      return "Health";
+      return "Health record";
   }
 }
-
-/* =========================================================
-   TYPE STYLES
-========================================================= */
-
-function getTypeStyles(type: HealthHistoryType) {
-  switch (type) {
-    case "medicine":
-      return {
-        icon: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-        badge:
-          "bg-blue-500/10 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
-      };
-
-    case "symptom":
-      return {
-        icon: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-        badge:
-          "bg-orange-500/10 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300",
-      };
-
-    case "report":
-      return {
-        icon: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-        badge:
-          "bg-purple-500/10 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300",
-      };
-
-    case "voice":
-      return {
-        icon: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-        badge:
-          "bg-cyan-500/10 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300",
-      };
-
-    default:
-      return {
-        icon: "bg-gray-500/10 text-gray-600 dark:text-gray-400",
-        badge:
-          "bg-gray-500/10 text-gray-700 dark:bg-gray-500/15 dark:text-gray-300",
-      };
-  }
-}
-
-/* =========================================================
-   DATE FORMATTER
-========================================================= */
-
-function formatDate(value: unknown) {
-  if (!value) {
-    return "Unknown date";
-  }
-
-  try {
-    /*
-     * Firestore Timestamp
-     */
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      "toDate" in value &&
-      typeof (value as { toDate?: unknown }).toDate === "function"
-    ) {
-      const date = (
-        value as {
-          toDate: () => Date;
-        }
-      ).toDate();
-
-      return date.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-    }
-
-    /*
-     * JavaScript Date
-     */
-    if (value instanceof Date) {
-      return value.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-    }
-
-    /*
-     * Firestore timestamp-like object
-     */
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      "seconds" in value
-    ) {
-      const seconds = Number(
-        (value as { seconds: number }).seconds
-      );
-
-      if (!Number.isNaN(seconds)) {
-        return new Date(seconds * 1000).toLocaleDateString(
-          "en-IN",
-          {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }
-        );
-      }
-    }
-
-    const date = new Date(value as string | number);
-
-    if (Number.isNaN(date.getTime())) {
-      return "Unknown date";
-    }
-
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return "Unknown date";
-  }
-}
-
-/* =========================================================
-   TIME FORMATTER
-========================================================= */
-
-function formatTime(value: unknown) {
-  if (!value) {
-    return "";
-  }
-
-  try {
-    /*
-     * Firestore Timestamp
-     */
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      "toDate" in value &&
-      typeof (value as { toDate?: unknown }).toDate === "function"
-    ) {
-      return (
-        value as {
-          toDate: () => Date;
-        }
-      )
-        .toDate()
-        .toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-    }
-
-    const date = new Date(value as string | number);
-
-    if (Number.isNaN(date.getTime())) {
-      return "";
-    }
-
-    return date.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
-}
-
-/* =========================================================
-   URGENCY STYLES
-========================================================= */
-
-function getUrgencyStyles(urgency?: string) {
-  switch (urgency) {
-    case "emergency":
-      return "bg-red-500/10 text-red-700 dark:text-red-300";
-
-    case "urgent":
-      return "bg-orange-500/10 text-orange-700 dark:text-orange-300";
-
-    case "soon":
-      return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300";
-
-    default:
-      return "bg-green-500/10 text-green-700 dark:text-green-300";
-  }
-}
-
-/* =========================================================
-   MAIN COMPONENT
-========================================================= */
 
 export function HealthHistory() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
-  const [history, setHistory] = useState<
-    HealthHistoryRecord[]
-  >([]);
-
+  const [records, setRecords] = useState<HealthHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [refreshing, setRefreshing] = useState(false);
-
-  const [search, setSearch] = useState("");
-
-  const [filter, setFilter] =
-    useState<FilterType>("all");
-
-  const [expandedId, setExpandedId] = useState<string | null>(
-    null
-  );
-
-  const [deletingId, setDeletingId] = useState<string | null>(
-    null
-  );
-
   const [error, setError] = useState("");
-
-  /* =======================================================
-     LOAD HISTORY
-  ======================================================= */
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | HealthHistoryType>("all");
+  const [selected, setSelected] = useState<HealthHistoryRecord | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadHistory = useCallback(
-    async (showRefreshLoader = false) => {
-      if (!user?.uid) {
-        setHistory([]);
+    async (isRefresh = false) => {
+      if (!user) {
+        setRecords([]);
         setLoading(false);
+        setRefreshing(false);
         return;
       }
 
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      setError("");
+
       try {
-        setError("");
-
-        if (showRefreshLoader) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
-
-        const data = await getHealthHistory(user.uid);
-
-        setHistory(data);
-      } catch (error) {
-        console.error(
-          "Failed to load health history:",
-          error
-        );
-
+        const result = await getHealthHistory(user.uid);
+        setRecords(result);
+      } catch (err) {
+        console.error("Failed to load health history:", err);
         setError(
-          "Unable to load your health history. Please try again."
+          err instanceof Error
+            ? err.message
+            : "Unable to load your health history."
         );
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [user?.uid]
+    [user]
   );
 
-  /* =======================================================
-     INITIAL LOAD
-  ======================================================= */
-
   useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+    if (authLoading) return;
+    void loadHistory();
+  }, [authLoading, loadHistory]);
 
-  /* =======================================================
-     FILTER HISTORY
-  ======================================================= */
+  const filteredRecords = useMemo(() => {
+    const term = search.trim().toLowerCase();
 
-  const filteredHistory = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return history.filter((item) => {
-      const matchesType =
-        filter === "all" || item.type === filter;
-
-      if (!matchesType) {
-        return false;
-      }
-
-      if (!query) {
-        return true;
-      }
+    return records.filter((record) => {
+      const matchesType = filter === "all" || record.type === filter;
 
       const searchableText = [
-        item.title,
-        item.summary,
-        item.type,
-        item.metadata?.medicineName,
-        item.metadata?.genericName,
-        item.metadata?.reportName,
-        item.metadata?.question,
-        ...(item.metadata?.symptoms || []),
+        record.title,
+        record.summary,
+        record.metadata?.medicineName,
+        record.metadata?.genericName,
+        record.metadata?.reportName,
+        record.metadata?.question,
+        ...(record.metadata?.symptoms ?? []),
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
 
-      return searchableText.includes(query);
+      return matchesType && searchableText.includes(term);
     });
-  }, [history, search, filter]);
+  }, [records, search, filter]);
 
-  /* =======================================================
-     STATISTICS
-  ======================================================= */
+  const counts = useMemo(
+    () => ({
+      total: records.length,
+      medicine: records.filter((r) => r.type === "medicine").length,
+      symptom: records.filter((r) => r.type === "symptom").length,
+      report: records.filter((r) => r.type === "report").length,
+      voice: records.filter((r) => r.type === "voice").length,
+    }),
+    [records]
+  );
 
-  const stats = useMemo(() => {
-    return {
-      total: history.length,
+  const handleDelete = async (record: HealthHistoryRecord) => {
+    if (!user) return;
 
-      medicines: history.filter(
-        (item) => item.type === "medicine"
-      ).length,
-
-      symptoms: history.filter(
-        (item) => item.type === "symptom"
-      ).length,
-
-      reports: history.filter(
-        (item) => item.type === "report"
-      ).length,
-    };
-  }, [history]);
-
-  /* =======================================================
-     DELETE
-  ======================================================= */
-
-  const handleDelete = async (id: string) => {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this health history record?"
+      `Delete "${record.title}" from your health history? This cannot be undone.`
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
+
+    setDeletingId(record.id);
+    setError("");
 
     try {
-      setDeletingId(id);
+      await deleteHealthHistory(user.uid, record.id);
 
-      await deleteHealthHistory(id);
-
-      setHistory((current) =>
-        current.filter((item) => item.id !== id)
+      setRecords((current) =>
+        current.filter((item) => item.id !== record.id)
       );
 
-      if (expandedId === id) {
-        setExpandedId(null);
+      if (selected?.id === record.id) {
+        setSelected(null);
       }
-    } catch (error) {
-      console.error(
-        "Failed to delete health history:",
-        error
-      );
-
+    } catch (err) {
+      console.error("Failed to delete health record:", err);
       setError(
-        "Unable to delete this record. Please try again."
+        err instanceof Error
+          ? err.message
+          : "Unable to delete this record."
       );
     } finally {
       setDeletingId(null);
     }
   };
 
-  /* =======================================================
-     CLEAR SEARCH
-  ======================================================= */
-
-  const clearSearch = () => {
-    setSearch("");
-  };
-
-  /* =======================================================
-     LOADING SCREEN
-  ======================================================= */
-
-  if (loading) {
+  if (authLoading || loading) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-950">
-        <div className="mx-auto flex max-w-7xl items-center justify-center py-32">
-          <div className="flex flex-col items-center gap-4">
-            <div className="rounded-full bg-blue-500/10 p-4">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            </div>
-
-            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-              Loading your health history...
-            </p>
-          </div>
+      <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
+        <div className="flex min-h-[50vh] items-center justify-center gap-3">
+          <Loader2 className="animate-spin text-sky-600" />
+          <span>Loading your health history...</span>
         </div>
       </main>
     );
   }
 
-  /* =======================================================
-     MAIN UI
-  ======================================================= */
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
+        <h1 className="text-3xl font-bold">Health History</h1>
+        <p className="mt-3 text-slate-600">
+          Please sign in to view your health records.
+        </p>
+      </main>
+    );
+  }
+
+  const statCards = [
+    { label: "Total records", value: counts.total, icon: HeartPulse },
+    { label: "Medicine scans", value: counts.medicine, icon: Pill },
+    { label: "Symptom checks", value: counts.symptom, icon: Stethoscope },
+    { label: "Medical reports", value: counts.report, icon: FileText },
+    { label: "Voice activity", value: counts.voice, icon: Activity },
+  ];
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-950 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-
-        {/* =================================================
-            HEADER
-        ================================================= */}
-
-        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-8">
+      <div className="mx-auto max-w-7xl space-y-8">
+        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <div className="mb-3 flex items-center gap-3">
-
-              <div className="rounded-2xl bg-blue-600 p-3 text-white shadow-lg shadow-blue-600/20">
-                <HeartPulse className="h-6 w-6" />
-              </div>
-
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                  MedAI
-                </p>
-
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">
-                  Health History
-                </h1>
-              </div>
-            </div>
-
-            <p className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400 sm:text-base">
-              Review your previous medicine scans,
-              symptom checks, medical reports, and Voice AI
-              activity in one place.
+            <p className="text-sm font-semibold uppercase tracking-widest text-sky-600">
+              MedAI
+            </p>
+            <h1 className="mt-2 text-3xl font-bold sm:text-4xl">
+              Health History
+            </h1>
+            <p className="mt-3 max-w-2xl text-slate-600">
+              Review your saved medicine scans, symptom checks, medical
+              reports, and Voice AI activity in one place.
             </p>
           </div>
 
           <button
             type="button"
-            onClick={() => loadHistory(true)}
+            onClick={() => void loadHistory(true)}
             disabled={refreshing}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-700 shadow-sm transition hover:bg-slate-100 disabled:opacity-60"
           >
             <RefreshCw
-              className={`h-4 w-4 ${
-                refreshing ? "animate-spin" : ""
-              }`}
+              size={18}
+              className={refreshing ? "animate-spin" : ""}
             />
-
             Refresh
           </button>
-        </div>
-
-        {/* =================================================
-            ERROR
-        ================================================= */}
+        </header>
 
         {error && (
-          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
-
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-
-            <div className="flex-1">
-              <p className="font-semibold">
-                Something went wrong
-              </p>
-
-              <p className="mt-1 text-sm">
-                {error}
-              </p>
-            </div>
-
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800"
+          >
+            <p className="font-semibold">Something went wrong</p>
+            <p className="mt-1 break-words text-sm">{error}</p>
             <button
               type="button"
-              onClick={() => setError("")}
-              className="rounded-lg p-1 transition hover:bg-red-100 dark:hover:bg-red-900/30"
+              onClick={() => void loadHistory(true)}
+              className="mt-3 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm transition hover:bg-red-100"
             >
-              <X className="h-4 w-4" />
+              Try again
             </button>
           </div>
         )}
 
-        {/* =================================================
-            STAT CARDS
-        ================================================= */}
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {statCards.map((item) => {
+            const Icon = item.icon;
 
-        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-
-          <StatCard
-            label="Total Records"
-            value={stats.total}
-            icon={<HeartPulse className="h-5 w-5" />}
-          />
-
-          <StatCard
-            label="Medicine Scans"
-            value={stats.medicines}
-            icon={<Pill className="h-5 w-5" />}
-          />
-
-          <StatCard
-            label="Symptom Checks"
-            value={stats.symptoms}
-            icon={<Stethoscope className="h-5 w-5" />}
-          />
-
-          <StatCard
-            label="Reports"
-            value={stats.reports}
-            icon={<FileText className="h-5 w-5" />}
-          />
-
-        </div>
-
-        {/* =================================================
-            SEARCH + FILTER
-        ================================================= */}
-
-        <section className="mb-8 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
-
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
-            {/* SEARCH */}
-
-            <div className="relative w-full lg:max-w-md">
-
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-
-              <input
-                type="text"
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                placeholder="Search your health history..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              />
-
-              {search && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-
-            </div>
-
-            {/* FILTERS */}
-
-            <div className="flex flex-wrap gap-2">
-
-              {FILTERS.map((item) => {
-                const active = filter === item.id;
-
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setFilter(item.id)}
-                    className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-                      active
-                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-
-            </div>
-          </div>
+            return (
+              <div
+                key={item.label}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="rounded-xl bg-sky-50 p-3 text-sky-600">
+                    <Icon size={22} />
+                  </div>
+                  <span className="text-3xl font-bold text-slate-900">
+                    {item.value}
+                  </span>
+                </div>
+                <p className="mt-4 text-sm text-slate-600">{item.label}</p>
+              </div>
+            );
+          })}
         </section>
 
-        {/* =================================================
-            RESULT COUNT
-        ================================================= */}
-
-        <div className="mb-4 flex items-center justify-between">
-
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            {filteredHistory.length}{" "}
-            {filteredHistory.length === 1
-              ? "record"
-              : "records"}
-          </p>
-
-          {(search || filter !== "all") && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearch("");
-                setFilter("all");
-              }}
-              className="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
-            >
-              Clear filters
-            </button>
-          )}
-
-        </div>
-
-        {/* =================================================
-            EMPTY STATE
-        ================================================= */}
-
-        {filteredHistory.length === 0 ? (
-          <EmptyState
-            hasFilters={
-              Boolean(search) || filter !== "all"
-            }
-            onClear={() => {
-              setSearch("");
-              setFilter("all");
-            }}
-          />
-        ) : (
-          /* =================================================
-             TIMELINE
-          ================================================= */
-
+        <section className="space-y-5 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:p-6">
           <div className="relative">
+            <Search
+              size={19}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+            />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search your health records"
+              aria-label="Search health records"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-slate-900 outline-none placeholder:text-slate-500 focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+            />
+          </div>
 
-            <div className="absolute bottom-0 left-[27px] top-0 hidden w-px bg-slate-200 dark:bg-slate-800 sm:block" />
+          <div className="flex flex-wrap gap-2">
+            {FILTERS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setFilter(item.value)}
+                className={`rounded-full border px-4 py-2 text-sm transition ${
+                  filter === item.value
+                    ? "border-sky-300 bg-sky-50 text-sky-700"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
 
-            <div className="space-y-5">
-
-              {filteredHistory.map((item) => {
-                const expanded =
-                  expandedId === item.id;
-
-                const styles =
-                  getTypeStyles(item.type);
+          {filteredRecords.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-14 text-center">
+              <Calendar
+                className="mx-auto text-slate-400"
+                size={34}
+              />
+              <h2 className="mt-4 text-lg font-semibold text-slate-900">
+                {records.length === 0
+                  ? "No health records yet"
+                  : "No matching records"}
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
+                {records.length === 0
+                  ? "Your saved activity will appear here when your health features save records automatically."
+                  : "Try another search term or select a different filter."}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredRecords.map((record) => {
+                const Icon = getIcon(record.type);
 
                 return (
                   <article
-                    key={item.id}
-                    className="relative rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900 sm:ml-14"
+                    key={record.id}
+                    className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md sm:flex-row sm:items-center"
                   >
-
-                    {/* TIMELINE ICON */}
-
-                    <div
-                      className={`absolute -left-[58px] top-6 hidden h-12 w-12 items-center justify-center rounded-2xl border-4 border-slate-50 dark:border-slate-950 sm:flex ${styles.icon}`}
-                    >
-                      {getTypeIcon(item.type)}
-                    </div>
-
-                    {/* HEADER */}
-
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-
-                      <div className="flex min-w-0 gap-3">
-
-                        {/* MOBILE ICON */}
-
-                        <div
-                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:hidden ${styles.icon}`}
-                        >
-                          {getTypeIcon(item.type)}
-                        </div>
-
-                        <div className="min-w-0">
-
-                          <div className="mb-2 flex flex-wrap items-center gap-2">
-
-                            <span
-                              className={`rounded-lg px-2.5 py-1 text-xs font-bold ${styles.badge}`}
-                            >
-                              {getTypeLabel(item.type)}
-                            </span>
-
-                            {item.metadata?.urgency && (
-                              <span
-                                className={`rounded-lg px-2.5 py-1 text-xs font-semibold capitalize ${getUrgencyStyles(
-                                  item.metadata.urgency
-                                )}`}
-                              >
-                                {item.metadata.urgency}
-                              </span>
-                            )}
-
-                          </div>
-
-                          <h2 className="truncate text-lg font-bold text-slate-900 dark:text-white">
-                            {item.title}
-                          </h2>
-
-                          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-
-                            <span className="inline-flex items-center gap-1.5">
-                              <Calendar className="h-3.5 w-3.5" />
-
-                              {formatDate(
-                                item.createdAt
-                              )}
-                            </span>
-
-                            {formatTime(
-                              item.createdAt
-                            ) && (
-                              <span className="inline-flex items-center gap-1.5">
-                                <Clock className="h-3.5 w-3.5" />
-
-                                {formatTime(
-                                  item.createdAt
-                                )}
-                              </span>
-                            )}
-
-                          </div>
-                        </div>
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <div className="rounded-xl bg-sky-50 p-3 text-sky-600">
+                        <Icon size={22} />
                       </div>
 
-                      {/* ACTIONS */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="break-words font-semibold text-slate-900">
+                            {record.title}
+                          </h3>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
+                            {getTypeLabel(record.type)}
+                          </span>
+                        </div>
 
-                      <div className="flex shrink-0 items-center gap-2">
+                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">
+                          {record.summary}
+                        </p>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedId(
-                              expanded
-                                ? null
-                                : item.id
-                            )
-                          }
-                          className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                        >
-                          {expanded ? (
-                            <>
-                              Hide
-                              <ChevronUp className="h-4 w-4" />
-                            </>
-                          ) : (
-                            <>
-                              Details
-                              <ChevronDown className="h-4 w-4" />
-                            </>
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDelete(item.id)
-                          }
-                          disabled={
-                            deletingId === item.id
-                          }
-                          aria-label="Delete history record"
-                          className="rounded-xl p-2.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                        >
-                          {deletingId === item.id ? (
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-5 w-5" />
-                          )}
-                        </button>
-
+                        <p className="mt-3 text-xs text-slate-500">
+                          {formatDate(record.createdAt)}
+                        </p>
                       </div>
                     </div>
 
-                    {/* SUMMARY */}
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelected(record)}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                      >
+                        View details
+                      </button>
 
-                    <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-400">
-                      {item.summary}
-                    </p>
-
-                    {/* DETAILS */}
-
-                    {expanded && (
-                      <HistoryDetails
-                        item={item}
-                      />
-                    )}
-
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(record)}
+                        disabled={deletingId === record.id}
+                        aria-label={`Delete ${record.title}`}
+                        className="rounded-lg border border-red-200 bg-white p-2 text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {deletingId === record.id ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={18} />
+                        )}
+                      </button>
+                    </div>
                   </article>
                 );
               })}
-
             </div>
-          </div>
-        )}
+          )}
+        </section>
 
-        {/* =================================================
-            PRIVACY
-        ================================================= */}
-
-        <div className="mt-10 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
-
-          <div className="rounded-lg bg-blue-600/10 p-2 text-blue-600 dark:text-blue-400">
-            <UserRound className="h-5 w-5" />
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
-              Your health data
-            </p>
-
-            <p className="mt-1 text-xs leading-5 text-blue-800/80 dark:text-blue-300/80">
-              Your health history is linked to your
-              account. Only your account can access these
-              records through the application.
-            </p>
-          </div>
-
-        </div>
+        <p className="text-xs leading-6 text-slate-500">
+          Your health history contains sensitive information. Sign out on
+          shared devices and use appropriate Firestore security rules to
+          protect your records. This history is for reference and is not a
+          substitute for professional medical advice.
+        </p>
       </div>
+
+      {selected && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-sm"
+          onClick={() => setSelected(null)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="history-detail-title"
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-sky-600">
+                  {getTypeLabel(selected.type)}
+                </p>
+                <h2
+                  id="history-detail-title"
+                  className="mt-2 break-words text-2xl font-bold"
+                >
+                  {selected.title}
+                </h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  {formatDate(selected.createdAt)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                aria-label="Close details"
+                className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mt-6 whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-4 leading-7 text-slate-700">
+              {selected.summary || "No summary is available."}
+            </div>
+
+            {selected.metadata &&
+              Object.entries(selected.metadata).map(([key, value]) => {
+                if (
+                  value === undefined ||
+                  value === null ||
+                  value === "" ||
+                  (Array.isArray(value) && value.length === 0)
+                ) {
+                  return null;
+                }
+
+                return (
+                  <div
+                    key={key}
+                    className="mt-4 border-b border-slate-100 pb-3 last:border-0"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      {key.replace(/([A-Z])/g, " $1")}
+                    </p>
+                    <p className="mt-1 break-words text-slate-700">
+                      {Array.isArray(value)
+                        ? value.join(", ")
+                        : String(value)}
+                    </p>
+                  </div>
+                );
+              })}
+
+            <button
+              type="button"
+              onClick={() => setSelected(null)}
+              className="mt-6 w-full rounded-xl bg-sky-600 px-4 py-3 font-semibold text-white transition hover:bg-sky-700"
+            >
+              Close details
+            </button>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
 
-/* =========================================================
-   STAT CARD
-========================================================= */
-
-function StatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-
-      <div className="mb-4 flex items-center justify-between">
-
-        <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600 dark:text-blue-400">
-          {icon}
-        </div>
-
-        <span className="text-2xl font-bold text-slate-900 dark:text-white">
-          {value}
-        </span>
-
-      </div>
-
-      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-        {label}
-      </p>
-
-    </div>
-  );
-}
-
-/* =========================================================
-   HISTORY DETAILS
-========================================================= */
-
-function HistoryDetails({
-  item,
-}: {
-  item: HealthHistoryRecord;
-}) {
-  const metadata = item.metadata;
-
-  return (
-    <div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-800">
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-
-        {/* MEDICINE */}
-
-        {metadata?.medicineName && (
-          <DetailBox
-            label="Medicine"
-            value={metadata.medicineName}
-          />
-        )}
-
-        {/* GENERIC */}
-
-        {metadata?.genericName && (
-          <DetailBox
-            label="Generic Name"
-            value={metadata.genericName}
-          />
-        )}
-
-        {/* REPORT */}
-
-        {metadata?.reportName && (
-          <DetailBox
-            label="Report"
-            value={metadata.reportName}
-          />
-        )}
-
-        {/* SYMPTOMS */}
-
-        {metadata?.symptoms &&
-          metadata.symptoms.length > 0 && (
-            <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
-
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-                Symptoms
-              </p>
-
-              <div className="flex flex-wrap gap-2">
-
-                {metadata.symptoms.map(
-                  (symptom, index) => (
-                    <span
-                      key={`${symptom}-${index}`}
-                      className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm dark:bg-slate-900 dark:text-slate-300"
-                    >
-                      {symptom}
-                    </span>
-                  )
-                )}
-
-              </div>
-            </div>
-          )}
-
-        {/* URGENCY */}
-
-        {metadata?.urgency && (
-          <DetailBox
-            label="Urgency"
-            value={metadata.urgency}
-          />
-        )}
-
-        {/* CONFIDENCE */}
-
-        {typeof metadata?.confidence ===
-          "number" && (
-          <DetailBox
-            label="AI Confidence"
-            value={`${Math.round(
-              metadata.confidence <= 1
-                ? metadata.confidence * 100
-                : metadata.confidence
-            )}%`}
-          />
-        )}
-
-        {/* QUESTION */}
-
-        {metadata?.question && (
-          <div className="rounded-2xl bg-slate-50 p-4 sm:col-span-2 lg:col-span-3 dark:bg-slate-950">
-
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-              Question
-            </p>
-
-            <p className="text-sm leading-6 text-slate-700 dark:text-slate-300">
-              {metadata.question}
-            </p>
-
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
-   DETAIL BOX
-========================================================= */
-
-function DetailBox({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
-
-      <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-
-      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-        {value}
-      </p>
-
-    </div>
-  );
-}
-
-/* =========================================================
-   EMPTY STATE
-========================================================= */
-
-function EmptyState({
-  hasFilters,
-  onClear,
-}: {
-  hasFilters: boolean;
-  onClear: () => void;
-}) {
-  return (
-    <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center dark:border-slate-700 dark:bg-slate-900">
-
-      <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-
-        {hasFilters ? (
-          <Search className="h-7 w-7" />
-        ) : (
-          <HeartPulse className="h-7 w-7" />
-        )}
-
-      </div>
-
-      <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-        {hasFilters
-          ? "No matching records"
-          : "No health history yet"}
-      </h2>
-
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500 dark:text-slate-400">
-        {hasFilters
-          ? "Try changing your search or filter to find the record you are looking for."
-          : "Your medicine scans, symptom checks, medical reports, and Voice AI activity will appear here."}
-      </p>
-
-      {hasFilters && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="mt-6 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700"
-        >
-          Clear filters
-        </button>
-      )}
-
-    </div>
-  );
-}
+export default HealthHistory;
